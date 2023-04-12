@@ -1,0 +1,48 @@
+# Define the maximum number of VMs allowed
+MAX_VMS = 253
+
+# Get the number of VMs to create from the command-line argument
+if ARGV[0] == "up"
+	puts "What number of VMs we should run? \n"
+	num_vms = STDIN.gets.chomp.to_i
+		# Validate the input
+	if num_vms < 1 || num_vms > MAX_VMS
+	  abort "Invalid number of VMs. Must be between 1 and #{MAX_VMS}."
+	end
+else 
+	vms_directory = Dir.children(".vagrant/machines")
+	num_vms = vms_directory.length  - 1
+end
+
+Vagrant.configure("2") do |config|
+
+  config.ssh.insert_key = false
+
+  # Use the custom box
+  config.vm.box = "kazak-custom-box"
+
+  # Loop through each VM and set up its configuration
+  (1..num_vms).each do |i|
+    config.vm.define "kazak_vm#{i}" do |node|
+      
+      # Set the VM's hostname
+      node.vm.hostname = "vm#{i}"
+      
+      # Set up the VM's network configuration
+      node.vm.network "private_network", ip: "192.168.4.#{10 + i}"
+      
+      # Set up provisioning to install any necessary software and configuration
+      node.vm.provision "shell", inline: <<-SHELL
+        sudo apt-get update
+        sudo apt-get install -y apache2
+        sudo sed -i 's/Listen 80/Listen 0.0.0.0:80/g' /etc/apache2/ports.conf
+        echo "<h1>Hello from kazak-vm#{i} Apache web server!</h1>" | sudo tee /var/www/html/index.html
+		sudo sed -i '12 c\\\tDocumentRoot /var/www/html/' /etc/apache2/sites-available/000-default.conf
+		sudo systemctl restart apache2
+      SHELL
+      
+      # Set up port forwarding for the VM
+      node.vm.network "forwarded_port", guest: 80, host: 8080 + i
+    end
+  end
+end

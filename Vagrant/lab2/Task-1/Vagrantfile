@@ -1,0 +1,82 @@
+# -*- mode: ruby -*-
+
+Vagrant.configure("2") do |config|
+  #create first vm ubuntu
+  config.vm.define "ubuntu_first_vm" do |node1|
+    node1.vm.box = "ubuntu/trusty64"
+    
+    node1.vm.provider :virtualbox do |vb|
+      vb.name = "ubuntu_first_vm"
+      vb.memory = "1024"
+      vb.cpus = "1"
+    end
+    node1.vm.hostname = "ubuntu_first_vm"
+    node1.vm.network "private_network",
+      ip: "192.168.4.10"
+    node1.vm.provision "Shell", type: "shell", run: "once" do |sh|
+      shell = <<-SHELL
+        #ip address add 192.168.121.10/24 dev eth1
+        SHELL
+      sh.inline = shell
+      sh.privileged = true
+    end
+  end
+
+  #create second vm debian
+  config.vm.define "ubuntu_second_vm" do |node2|
+    node2.vm.box = "centos/8"
+    node2.vm.synced_folder "./files/", "/vagrant"
+    node2.vm.provider :virtualbox do |vb|
+      vb.name = "ubuntu_second_vm"
+      vb.customize ["modifyvm", :id, "--nested-hw-virt", "on"]
+      vb.memory = "4096"
+      vb.cpus = "1"
+    end
+    node2.vm.hostname = "ubuntu_second_vm"
+    node2.vm.network "private_network",
+      ip: "192.168.56.20",
+      auto_config: false
+    
+    node2.vm.provision "Shell", type: "shell", run: "once" do |sh|
+      shell = <<-SHELL
+      apt-get update
+      apt-get install -y gnupg2 software-properties-common
+      curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
+      apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+
+      apt-get update
+      apt-get install -y qemu-kvm qemu-system \
+        qemu-utils libvirt-clients \
+        libvirt-daemon-system virtinst libvirt-dev \
+        bridge-utils \
+        nfs-common nfs-kernel-server \
+        build-essential vagrant
+          
+      systemctl enable libvirtd
+      systemctl start libvirtd
+
+      vagrant plugin install vagrant-libvirt
+      sudo gpasswd -a "$USER" libvirt
+
+      vagrant box add --provider libvirt --box-version 8.11.0  debian/jessie64
+
+      /sbin/brctl addbr br0
+      /sbin/brctl setageing br0 0
+      /sbin/brctl addif br0 eth1
+      ip address add 192.168.56.25/24 dev br0
+      ip link set br0 up
+      ip link set eth1 up
+      
+
+      cd /vagrant
+      vagrant up
+
+      # /sbin/brctl addif br0 vnet1
+      
+      
+      SHELL
+      sh.inline = shell
+      sh.privileged = true
+    end
+  end
+end

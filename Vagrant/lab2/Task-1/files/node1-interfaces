@@ -1,0 +1,14 @@
+iface eth0 inet manual
+
+auto br0
+iface br0 inet static
+    # Use the MAC address identified above.
+    hwaddress ether 19:7c:3b:92:ec:ee
+    address 192.168.56.11
+    netmask 255.255.255.0
+    gateway 192.168.56.1
+
+    bridge_ports eth0
+    bridge_stp off
+    # If STP is off, set to 0. If STP is on, set to 2 (or greater).
+    bridge_fd 0

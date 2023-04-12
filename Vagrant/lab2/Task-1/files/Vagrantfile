@@ -1,0 +1,28 @@
+
+
+Vagrant.configure("2") do |config|
+  
+  config.vm.define "internal-node1" do |node1|
+    
+    node1.vm.box = "debian/jessie64"
+    node1.vm.hostname = "internal-node1"
+    node1.vm.provider :libvirt do |lv|
+      lv.memory = "1024"
+      lv.cpus = "1"
+    end
+
+    #config.vm.network "public_network", ip: "192.168.121.30", netmask: "24"
+
+    config.vm.network :public_network, ip: "192.168.56.30", netmask: "24",
+    :dev => "br0",
+    :mode => "bridge",
+    :type => "bridge"
+
+    # node1.vm.provision "Shell", type: "shell", run: "once" do |sh|
+    #   shell = <<-SHELL
+        
+        
+    #   SHELL
+    # end
+  end
+end

@@ -1,0 +1,13 @@
+chmod 666 /vagrant/debian-10-openstack-amd64.qcow2
+        sudo virt-install \
+        --virt-type=kvm \
+        --name=debian10 \
+        --ram=1024 \
+        --vcpus=1 \
+        --hvm \
+        --os-type=linux \
+        --os-variant=debianwheezy \
+        --disk /vagrant/debian-10-openstack-amd64.qcow2 \
+        --import \
+        --network bridge=br0
+        virsh autostart debian10

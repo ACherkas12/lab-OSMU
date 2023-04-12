@@ -1,0 +1,8 @@
+iface eth1 inet manual
+
+auto br0
+iface br0 inet static
+    bridge_ports eth1
+        address 192.168.56.15
+        netmask 255.255.255.0
+        gateway 192.168.56.1

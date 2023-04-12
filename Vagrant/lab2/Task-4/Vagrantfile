@@ -1,0 +1,88 @@
+Vagrant.configure("2") do |config|
+
+MAX_VMS = 253
+
+if ARGV[0] == "up"
+	puts "What number of VMs we should run? \n"
+	number_of_vms = STDIN.gets.chomp.to_i
+		# Validate the input
+	if number_of_vms < 1 || number_of_vms > MAX_VMS
+	  abort "Invalid number of VMs. Must be between 1 and #{MAX_VMS}."
+	end
+else 
+	vms_directory = Dir.children(".vagrant/machines")
+	number_of_vms = vms_directory.length
+end
+
+  # Define VM with webserver
+  config.vm.define "webserver" do |webserver|
+	if number_of_vms > 1
+    # Store IPs and hostnames of all VMs
+		vms_ips = []
+		(1..number_of_vms).each do |i|
+		if i == 1
+			vms_ips << "192.168.10.2 webserver \n"
+		else
+			vms_ips << "192.168.10.#{i + 1} vm#{i} \n"
+		end
+	end
+	end
+    webserver.vm.box = "bento/ubuntu-20.04"
+    webserver.vm.network "private_network", ip: "192.168.10.2"
+    webserver.vm.hostname = "webserver"
+    webserver.vm.provision "shell", inline: <<-SHELL
+      # Install webserver (Apache or NGINX)
+      # Change the following command to install the desired webserver
+      sudo apt-get update
+      sudo apt-get install -y apache2
+      
+      # Configure webserver as a load balancer
+      # Change the following configuration to set up load balancing
+      # using the desired webserver (Apache or NGINX)
+      # Example: Configure Apache as a load balancer
+      sudo a2enmod proxy proxy_balancer proxy_http
+      sudo service apache2 restart
+	  echo "#{vms_ips.join('')}" | sudo tee -a /etc/hosts
+    SHELL
+  end
+
+  # If number of VMs is greater than 1, define remaining VMs with Tomcat
+  if number_of_vms > 1
+    # Store IPs and hostnames of all VMs
+    vms_ips = []
+    (1..number_of_vms).each do |i|
+	if i == 1
+		vms_ips << "192.168.10.2 webserver \n"
+	else
+      vms_ips << "192.168.10.#{i + 1} vm#{i} \n"
+	end
+    end
+
+    (1..number_of_vms).each do |i|
+      next if i == 1 # Skip VM1, which is the webserver
+      
+      config.vm.define "vm#{i}" do |vm|
+        # Configure VM's IP address
+        vm.vm.box = "bento/ubuntu-20.04"
+        vm.vm.network "private_network", ip: "192.168.10.#{i + 2}"
+        
+        # Configure VM's hostname
+        vm.vm.hostname = "vm#{i}"
+        
+        # Provision VM with Tomcat
+        vm.vm.provision "shell", inline: <<-SHELL
+          # Install Tomcat
+          sudo apt-get update
+          sudo apt-get install -y tomcat9
+          
+          # Create index.html with welcome text and VM name
+          echo "<html><body><h1>Welcome to Tomcat on VM#{i}!</h1></body></html>" | sudo tee /var/lib/tomcat9/webapps/ROOT/index.html
+          
+          # Add all VMs' IPs and hostnames to /etc/hosts
+          echo "#{vms_ips.join('')}" | sudo tee -a /etc/hosts
+        SHELL
+		vm.vm.network "forwarded_port", guest: 8080, host: 8080 + i
+      end
+    end
+  end
+end
